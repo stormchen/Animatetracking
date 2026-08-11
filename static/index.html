@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AniTrack · 動漫追蹤與新番排行</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <header>
+        <h1>🎬 AniTrack 動漫追蹤</h1>
+        <nav>
+            <button class="tab active" data-tab="home">本月 Top10</button>
+            <button class="tab" data-tab="season">新番季</button>
+            <button class="tab" data-tab="search">搜尋</button>
+            <button class="tab" data-tab="watchlist">我的清單</button>
+            <button class="tab" data-tab="prefs">偏好設定</button>
+            <button id="titles-sync" class="btn primary" style="margin-left:8px">同步中文名</button>
+        </nav>
+        <span id="titles-status" class="status"></span>
+    </header>
+
+    <main>
+        <!-- HOME / TOP10 -->
+        <section id="tab-home" class="panel active">
+            <div class="toolbar">
+                <select id="home-season"></select>
+                <input id="home-year" type="number" min="1990" max="2100" value="2026">
+                <button id="home-load" class="btn primary">載入排行</button>
+                <button id="home-refresh" class="btn">強制重整</button>
+                <span id="home-status" class="status"></span>
+            </div>
+            <ol id="home-list" class="cards"></ol>
+        </section>
+
+        <!-- SEASON -->
+        <section id="tab-season" class="panel">
+            <div class="toolbar">
+                <select id="season-pick"></select>
+                <input id="season-year" type="number" min="1990" max="2100" value="2026">
+                <button id="season-load" class="btn primary">載入新番</button>
+                <button id="season-refresh" class="btn">強制重整</button>
+                <span id="season-status" class="status"></span>
+            </div>
+            <div class="grid" id="season-grid"></div>
+        </section>
+
+        <!-- SEARCH -->
+        <section id="tab-search" class="panel">
+            <div class="toolbar">
+                <input id="search-q" type="text" placeholder="輸入關鍵字，例如：異世界、魔法、校園...">
+                <select id="search-genre" multiple size="1"></select>
+                <input id="search-min" type="number" min="0" max="100" placeholder="最低評分">
+                <select id="search-sort">
+                    <option value="popularity">人氣</option>
+                    <option value="score">評分</option>
+                    <option value="trending">熱度</option>
+                    <option value="favourites">收藏</option>
+                    <option value="title">名稱</option>
+                    <option value="episodes">集數</option>
+                </select>
+                <button id="search-go" class="btn primary">搜尋</button>
+                <span id="search-status" class="status"></span>
+            </div>
+            <div class="grid" id="search-grid"></div>
+        </section>
+
+        <!-- WATCHLIST -->
+        <section id="tab-watchlist" class="panel">
+            <div class="toolbar">
+                <select id="watch-status">
+                    <option value="">全部狀態</option>
+                    <option value="want_to_watch">想看</option>
+                    <option value="watching">在看</option>
+                    <option value="completed">已看完</option>
+                    <option value="dropped">棄追</option>
+                </select>
+                <button id="watch-refresh" class="btn primary">重整清單</button>
+                <span id="watch-status-msg" class="status"></span>
+            </div>
+            <div id="watch-list" class="watch-rows"></div>
+        </section>
+
+        <!-- PREFS -->
+        <section id="tab-prefs" class="panel">
+            <h2>偏好的類型 / 關鍵字</h2>
+            <div class="toolbar">
+                <select id="pref-kind">
+                    <option value="genre">類型 (genre)</option>
+                    <option value="keyword">關鍵字 (keyword)</option>
+                </select>
+                <input id="pref-value" type="text" placeholder="例如：異世界 / Isekai">
+                <button id="pref-add" class="btn primary">新增</button>
+            </div>
+            <div id="pref-list" class="pref-pills"></div>
+            <hr>
+            <h3>一鍵推薦（依偏好）</h3>
+            <div class="toolbar">
+                <input id="pref-min" type="number" min="0" max="100" placeholder="最低評分">
+                <button id="pref-search" class="btn primary">推薦</button>
+                <span id="pref-status" class="status"></span>
+            </div>
+            <div class="grid" id="pref-results"></div>
+        </section>
+    </main>
+
+    <!-- detail modal -->
+    <div id="modal" class="modal hidden">
+        <div class="modal-box">
+            <span id="modal-close" class="modal-close">✕</span>
+            <div id="modal-body"></div>
+        </div>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>
