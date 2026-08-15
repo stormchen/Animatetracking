@@ -248,7 +248,13 @@ async function openDetail(id) {
                     ${m.site_url ? `<div class="detail-meta"><a href="${esc(m.site_url)}" target="_blank" rel="noopener">AniList 頁面 ↗</a></div>` : ""}
                 </div>
             </div>
-            <div class="syn">${esc((m.synopsis || "").slice(0, 800))}</div>
+            ${(() => {
+                const syn = m.synopsis_zh || m.synopsis || "";
+                const src = m.synopsis_zh ? "中文劇情（zh-wiki）" : (m.synopsis ? "英文劇情（原文）" : "");
+                return syn
+                    ? `<div class="syn">${esc(syn.slice(0, 800))}${src ? `<div class="detail-meta">${esc(src)}</div>` : ""}</div>`
+                    : `<div class="syn syn-empty">（暫無中文劇情，可點擊上方「補齊中文」）</div>`;
+            })()}
             <div class="watch-controls">
                 <div class="field">
                     <label>狀態</label>
@@ -322,7 +328,7 @@ async function pollTitleSync() {
     try {
         const s = await api("/api/titles/status");
         if (s.running) {
-            setStatus(st, `翻譯中… ${s.done}/${s.total}（命中 ${s.hit}）`);
+            setStatus(st, `補全中… ${s.done}/${s.total}（名 ${s.hit} / 劇情 ${s.syn_hit ?? 0}）`);
         } else {
             clearInterval(_titlePoll);
             _titlePoll = null;
@@ -355,10 +361,25 @@ document.querySelectorAll(".tab").forEach((b) => {
 });
 
 // ---------- init ----------
+function seasonOf(year, month) { // month 0-based, matches app/anilist.py current_season()
+    if (month >= 2 && month <= 4) return "SPRING";
+    if (month >= 5 && month <= 7) return "SUMMER";
+    if (month >= 8 && month <= 10) return "FALL";
+    return "WINTER";
+}
+function applyCurrentSeasonDefaults() {
+    const now = new Date();
+    const season = seasonOf(now.getFullYear(), now.getMonth());
+    document.getElementById("home-season").value = season;
+    document.getElementById("season-pick").value = season;
+    document.getElementById("home-year").value = now.getFullYear();
+    document.getElementById("season-year").value = now.getFullYear();
+}
 SEASONS.forEach(s => {
     document.getElementById("home-season").innerHTML += `<option value="${s}">${s}</option>`;
     document.getElementById("season-pick").innerHTML += `<option value="${s}">${s}</option>`;
 });
+applyCurrentSeasonDefaults();
 document.getElementById("home-refresh").addEventListener("click", () => {
     document.getElementById("home-status").dataset.force = "1";
     loadTop();

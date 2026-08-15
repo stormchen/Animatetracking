@@ -111,22 +111,30 @@ class Database:
 
     @staticmethod
     def _merge_zh(old: dict, new: dict) -> dict:
-        """Keep the most authoritative existing title_zh across re-fetches."""
+        """Keep the most authoritative existing Chinese fields across re-fetches."""
         merged = dict(new)
-        old_zh, new_zh = old.get("title_zh"), new.get("title_zh")
-        old_src, new_src = old.get("title_zh_source"), new.get("title_zh_source")
-        old_prio = Database.ZH_PRIORITY.get(old_src, 1)
-        new_prio = Database.ZH_PRIORITY.get(new_src, 1)
-        if old_zh and (not new_zh or old_prio >= new_prio):
-            merged["title_zh"] = old_zh
-            merged["title_zh_source"] = old_src
-        else:
-            merged["title_zh"] = new_zh
-            merged["title_zh_source"] = new_src
+
+        def keep_better(old_v, old_s, new_v, new_s):
+            old_prio = Database.ZH_PRIORITY.get(old_s, 1)
+            new_prio = Database.ZH_PRIORITY.get(new_s, 1)
+            if old_v and (not new_v or old_prio >= new_prio):
+                return old_v, old_s
+            return new_v, new_s
+
+        merged["title_zh"], merged["title_zh_source"] = keep_better(
+            old.get("title_zh"), old.get("title_zh_source"),
+            new.get("title_zh"), new.get("title_zh_source"),
+        )
+        merged["synopsis_zh"], merged["synopsis_zh_source"] = keep_better(
+            old.get("synopsis_zh"), old.get("synopsis_zh_source"),
+            new.get("synopsis_zh"), new.get("synopsis_zh_source"),
+        )
         if not merged.get("title_zh_attempted") and old.get("title_zh_attempted"):
             merged["title_zh_attempted"] = True
         if not merged.get("title_zh_source"):
             merged["title_zh_source"] = old.get("title_zh_source")
+        if not merged.get("synopsis_zh_source"):
+            merged["synopsis_zh_source"] = old.get("synopsis_zh_source")
         return merged
 
     def get_anime(self, anime_id: int) -> dict | None:
@@ -197,12 +205,14 @@ class Database:
                         filter(
                             None,
                             [
+                                i.get("title_zh"),
                                 i.get("title_romaji"),
                                 i.get("title_english"),
                                 i.get("title_native"),
                                 " ".join(i.get("genres") or []),
                                 " ".join(i.get("tags") or []),
                                 i.get("synopsis") or "",
+                                i.get("synopsis_zh") or "",
                             ],
                         )
                     ).lower()

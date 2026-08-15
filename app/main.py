@@ -12,13 +12,13 @@ from pydantic import BaseModel, Field
 from .anilist import SEASONS, AniListClient, AniListError, current_season
 from .config import STATIC_DIR
 from .database import STATUSES, Database, init_db
-from .wikimedia import ResolutionError, resolve_chinese_title
+from .wikimedia import ResolutionError, resolve_chinese_entry
 
 app = FastAPI(title="AniTrack", version="1.0.0")
 db = Database()
 anilist = AniListClient()
 
-# Background title-translation sync state.
+# Background Chinese-translation sync state (title + synops).
 _title_lock = threading.Lock()
 _title_state: dict = {
     "running": False,
@@ -26,6 +26,8 @@ _title_state: dict = {
     "done": 0,
     "hit": 0,
     "miss": 0,
+    "syn_hit": 0,
+    "syn_miss": 0,
     "started_at": None,
     "message": "",
 }
@@ -276,30 +278,49 @@ def search_preferences(
 
 def _title_worker(force: bool = False, recheck: bool = False) -> None:
     with _title_lock:
-        _title_state.update(running=True, total=0, done=0, hit=0, miss=0, skipped=0)
+        _title_state.update(
+            running=True, total=0, done=0, hit=0, miss=0,
+            syn_hit=0, syn_miss=0, skipped=0,
+        )
         rows = db._load_all_anime()
         pending = []
         for row in rows:
             item = json.loads(row["data"])
             retries = item.get("zh_retries") or 0
             if force:
-                pending.append(item)
-            elif recheck:
-                if not item.get("title_zh") and retries < 3:
+                # Re-resolve title AND synopsis whenever the caller asks.
+                missing = not item.get("title_zh") or not item.get("synopsis_zh")
+                if missing:
                     pending.append(item)
-            elif not item.get("title_zh_attempted"):
-                pending.append(item)
+            elif recheck:
+                missing = (
+                    not item.get("title_zh")
+                    or not item.get("synopsis_zh")
+                ) and retries < 3
+                if missing:
+                    pending.append(item)
+            else:
+                # First pass: title not yet resolved, or a previous pass
+                # resolved title but is missing the Chinese synopsis.
+                if not item.get("title_zh_attempted"):
+                    pending.append(item)
+                elif not item.get("synopsis_zh") and retries < 3:
+                    pending.append(item)
         _title_state["total"] = len(pending)
     if len(pending) == 0:
         with _title_lock:
             _title_state.update(
-                running=False, done=0, message="所有已快取作品都已具備中文名稱"
+                running=False,
+                done=0,
+                message="所有已快取作品都已具備中文名與中文劇情",
             )
         return
 
     for idx, item in enumerate(pending, 1):
+        had_title = bool(item.get("title_zh"))
+        had_syn = bool(item.get("synopsis_zh"))
         try:
-            zh = resolve_chinese_title(
+            entry = resolve_chinese_entry(
                 item.get("title_native"),
                 item.get("title_english"),
                 item.get("title_romaji"),
@@ -308,32 +329,55 @@ def _title_worker(force: bool = False, recheck: bool = False) -> None:
             # Source unreachable: keep the entry pending for a future retry.
             continue
         except Exception:
-            zh = None
-        if zh is None and item.get("title_zh"):
-            # Miss: keep any previously-derived fallback name rather than blank it.
+            entry = {"title": None, "synopsis": None, "source": None}
+
+        zh_title = entry.get("title")
+        zh_syn = entry.get("synopsis")
+        source = entry.get("source")
+
+        if zh_title:
+            item["title_zh"] = zh_title
+            item["title_zh_source"] = source or "wikidata"
+        elif had_title:
+            # Miss on title: keep the previously-derived fallback name.
             item["title_zh_source"] = "synonym_fallback"
         else:
-            item["title_zh"] = zh
-            item["title_zh_source"] = "wikidata" if zh else "none"
+            item["title_zh_source"] = "none"
+
+        if zh_syn:
+            item["synopsis_zh"] = zh_syn
+            item["synopsis_zh_source"] = source or "zhwiki"
+        elif had_syn:
+            item["synopsis_zh_source"] = "cache"
+        else:
+            item["synopsis_zh_source"] = "none"
+
         item["title_zh_attempted"] = True
-        item["zh_retries"] = (item.get("zh_retries") or 0) + (0 if zh else 1)
+        if not zh_title and not zh_syn:
+            item["zh_retries"] = (item.get("zh_retries") or 0) + 1
+        else:
+            item["zh_retries"] = 0
         try:
             db.upsert_anime([item])
         except Exception:
             pass
         with _title_lock:
             _title_state["done"] = idx
-            if zh:
+            if zh_title:
                 _title_state["hit"] += 1
             else:
                 _title_state["miss"] += 1
+            if zh_syn:
+                _title_state["syn_hit"] += 1
+            elif not had_syn:
+                _title_state["syn_miss"] += 1
         time.sleep(0.6)  # be polite to Wikimedia projects
 
     with _title_lock:
         _title_state["running"] = False
         _title_state["message"] = (
-            f"完成：新增 {_title_state['hit']} 部中文名，"
-            f"{_title_state['miss']} 部未找到，"
+            f"完成：中文名命中 {_title_state['hit']}、未找到 {_title_state['miss']}；"
+            f"中文劇情命中 {_title_state['syn_hit']}、未找到 {_title_state['syn_miss']}；"
             f"{_title_state['total'] - _title_state['done']} 部因暫時連線問題下次重試"
         )
 

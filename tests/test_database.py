@@ -113,6 +113,22 @@ class TestDatabase:
         got = self.db.get_anime(32)
         assert got["title_zh"] == "幼女戰記"
 
+    def test_search_matches_chinese_synopsis(self):
+        self.db.upsert_anime([
+            make(5, synopsis_zh="少年進入異世界冒險的故事"),
+            make(6, synopsis_zh="魔法少女日常"),
+        ])
+        items, total = self.db.query_anime(search="異世界")
+        assert total == 1 and items[0]["id"] == 5
+
+    def test_upsert_preserves_synopsis_zh_over_normalize(self):
+        self.db.upsert_anime([make(41, synopsis_zh="少年被困於遊戲世界。", synopsis_zh_source="zhwiki")])
+        self.db.upsert_anime([make(41)])  # season re-normalize: no synopsis_zh
+        got = self.db.get_anime(41)
+        assert got["synopsis_zh"] == "少年被困於遊戲世界。"
+        assert got["synopsis_zh_source"] == "zhwiki"
+        assert got["synopsis"] == "A boy gets trapped in a game world."
+
     def test_watch_record_lifecycle(self):
         self.db.upsert_anime([make(5)])
         self.db.set_watch_record(5, status="watching", progress=4, personal_score=8)

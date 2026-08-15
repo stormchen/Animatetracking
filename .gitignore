@@ -5,6 +5,7 @@ anitrack.db
 server.out.log
 server.err.log
 .pytest_cache/
+.opencode/
 dbg*.txt
 resolve_dbg*.txt
 bgm_*.txt

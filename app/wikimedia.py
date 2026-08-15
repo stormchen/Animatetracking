@@ -186,6 +186,28 @@ def _zhwiki_search_title(keyword: str) -> str | None:
     return None
 
 
+def _zhwiki_extract(zh_title: str) -> str | None:
+    """Fetch a plain-text intro excerpt for a zh-wiki title, or None."""
+    if not zh_title:
+        return None
+    params = {
+        "action": "query",
+        "prop": "extracts",
+        "format": "json",
+        "utf8": "1",
+        "exintro": "1",
+        "explaintext": "1",
+        "titles": zh_title,
+    }
+    with httpx.Client(timeout=_TIMEOUT, headers={"User-Agent": _USER_AGENT}) as c:
+        data = _get_json(c, _ZHWIKI_API, params)
+    for page in ((data or {}).get("query", {}).get("pages", {}) or {}).values():
+        extract = (page or {}).get("extract")
+        if extract:
+            return extract
+    return None
+
+
 def resolve_chinese_title(
     native: str | None,
     english: str | None,
@@ -211,3 +233,46 @@ def resolve_chinese_title(
         if zh:
             return _to_traditional(zh)
     return None
+
+
+def resolve_chinese_entry(
+    native: str | None,
+    english: str | None,
+    romaji: str | None,
+) -> dict:
+    """Resolve a Traditional Chinese title plus an intro synopsis.
+
+    Returns {"title": str | None, "synopsis": str | None,
+    "source": "wikidata" | "zhwiki" | None}.
+    Raises ResolutionError if the sources are unreachable (transient).
+    """
+    zh_title = None
+    zh_raw = None  # Simplified title as stored on zh-wiki (for extract lookup)
+    source: str | None = None
+    for kw in (english, romaji):
+        if not kw:
+            continue
+        raw = _wikidata_zh_title(kw)
+        if raw:
+            zh_raw = raw
+            zh_title = _to_traditional(raw)
+            source = "wikidata"
+            break
+    if not zh_title:
+        for kw in (native, english, romaji):
+            if not kw:
+                continue
+            raw = _zhwiki_search_title(kw)
+            if raw:
+                zh_raw = raw
+                zh_title = _to_traditional(raw)
+                source = "zhwiki"
+                break
+    synopsis = _zhwiki_extract(zh_raw) if zh_raw else None
+    if synopsis:
+        synopsis = _to_traditional(synopsis)
+    return {
+        "title": zh_title,
+        "synopsis": synopsis,
+        "source": source if zh_title else None,
+    }

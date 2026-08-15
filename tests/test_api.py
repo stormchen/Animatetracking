@@ -106,7 +106,7 @@ class TestPreferences:
     def test_sync_title_status_and_start(self, client, monkeypatch):
         from app import main as m
 
-        monkeypatch.setattr(m, "_title_worker", lambda: None)
+        monkeypatch.setattr(m, "_title_worker", lambda force, recheck: None)
         r = client.post("/api/titles/sync")
         assert r.status_code == 200
         assert r.json()["started"] is True
