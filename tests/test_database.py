@@ -51,6 +51,42 @@ class TestChineseTitle:
         assert zh == "天官賜福"
 
 
+class TestYouTubeLinks:
+    def test_pick_youtube_filters_and_dedupes(self):
+        client = AniListClient()
+        links = [
+            {"site": "YouTube", "url": "https://youtube.com/@official", "type": "STREAMING"},
+            {"site": "YouTube", "url": "https://youtube.com/@official", "type": "STREAMING"},
+            {"site": "Crunchyroll", "url": "https://crunchyroll.com/x", "type": "STREAMING"},
+            {"site": "YouTube", "url": "https://youtube.com/playlist?list=abc", "type": "STREAMING"},
+        ]
+        out = client._pick_youtube(links)
+        assert len(out) == 2
+        assert out[0]["url"] == "https://youtube.com/@official"
+        assert out[0]["type"] == "STREAMING"
+        assert out[1]["url"] == "https://youtube.com/playlist?list=abc"
+
+    def test_normalize_media_extracts_youtube(self):
+        client = AniListClient()
+        media = {
+            "id": 123,
+            "title": {"romaji": "X", "native": "X"},
+            "coverImage": {},
+            "externalLinks": [
+                {"site": "YouTube", "url": "https://youtube.com/@chan", "type": "STREAMING"},
+                {"site": "Twitter", "url": "https://x.com/official", "type": "SOCIAL"},
+            ],
+        }
+        out = client._normalize_media(media)
+        assert out["youtube"] == [{"url": "https://youtube.com/@chan", "type": "STREAMING"}]
+
+    def test_normalize_media_empty_youtube(self):
+        client = AniListClient()
+        media = {"id": 124, "title": {}, "coverImage": {}}
+        out = client._normalize_media(media)
+        assert out["youtube"] == []
+
+
 class TestDatabase:
     def setup_method(self):
         self.db = Database()

@@ -41,6 +41,15 @@ function statusChip(m) {
 
 function mediaName(m) { return titleOf(m); }
 
+function ytLinks(m) {
+    return (m.youtube || []).filter(y => y && y.url);
+}
+function ytCardBadge(m) {
+    const ys = ytLinks(m);
+    if (!ys.length) return "";
+    return ` <a class="yt-link" href="${esc(ys[0].url)}" target="_blank" rel="noopener" title="YouTube 官方頻道／播放清單" onclick="event.stopPropagation()">▶ YT</a>`;
+}
+
 function cardHTML(m, rank) {
     const cover = m.cover_large || m.cover_medium || "";
     const badge = rank
@@ -52,7 +61,7 @@ function cardHTML(m, rank) {
         ${cover ? `<img class="cover" src="${esc(cover)}" alt="" loading="lazy">` : '<div class="cover"></div>'}
         <div class="card-info">
             <h3>${esc(titleOf(m))}${statusChip(m)}</h3>
-            <div class="meta">⭐ ${m.mean_score ?? "?"} · ♥ ${m.popularity ?? 0} · 📺 ${m.episodes ?? "?"}話</div>
+            <div class="meta">⭐ ${m.mean_score ?? "?"} · ♥ ${m.popularity ?? 0} · 📺 ${m.episodes ?? "?"}話${ytCardBadge(m)}</div>
             <div class="tags">${statusTags(m)}${(m.tags || []).slice(0, 3).map(t => `<span class="tag">${esc(t)}</span>`).join("")}</div>
         </div>
     </div>`;
@@ -246,6 +255,7 @@ async function openDetail(id) {
                     <div class="detail-meta">⭐ ${esc(m.mean_score ?? "?")} 社群平均 · ♥ 人氣 ${esc(m.popularity ?? 0)} · 🔥 ${esc(m.trending ?? 0)} · ★ ${esc(m.favourites ?? 0)}</div>
                     <div class="tags">${statusTags(m)}${(m.tags || []).slice(0, 6).map(t => `<span class="tag">${esc(t)}</span>`).join("")}</div>
                     ${m.site_url ? `<div class="detail-meta"><a href="${esc(m.site_url)}" target="_blank" rel="noopener">AniList 頁面 ↗</a></div>` : ""}
+                    ${ytLinks(m).map(y => `<div class="detail-meta">🎬 <a href="${esc(y.url)}" target="_blank" rel="noopener">${y.type === "STREAMING" ? "YouTube 官方頻道／播放清單 ↗" : "YouTube 相關頻道 ↗"}</a></div>`).join("")}
                 </div>
             </div>
             ${(() => {

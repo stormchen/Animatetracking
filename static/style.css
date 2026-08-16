@@ -56,6 +56,8 @@ select option { background: #1d2230; }
 .card-info { min-width: 0; }
 .card-info h3 { margin: 0 0 4px; font-size: 14px; line-height: 1.35; }
 .meta { font-size: 12px; color: #8b93a5; margin: 2px 0; }
+.yt-link { color: #ff5f5f; text-decoration: none; font-weight: 700; }
+.yt-link:hover { text-decoration: underline; }
 .tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
 .tag { background: #262e40; color: #9fb0d6; font-size: 11px; padding: 2px 8px; border-radius: 99px; }
 .score { color: #facc15; font-weight: 700; }

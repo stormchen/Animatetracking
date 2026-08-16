@@ -45,6 +45,14 @@ class TestSeasonAndTop10:
         assert ranked[0]["rank"] == 1
         assert ranked[0]["media"]["id"] == 1  # Frieren (highest score)
 
+    def test_youtube_links_surfaced(self, client):
+        from app.main import db
+
+        db.upsert_anime([make(1, youtube=[{"url": "https://youtube.com/@x", "type": "STREAMING"}])])
+        r = client.get("/api/anime/1")
+        assert r.status_code == 200
+        assert r.json()["youtube"][0]["url"] == "https://youtube.com/@x"
+
 
 class TestSearch:
     def test_search_empty_cache_returns_hint(self, client):

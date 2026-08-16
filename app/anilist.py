@@ -44,6 +44,7 @@ query ($year: Int, $season: MediaSeason, $page: Int, $perPage: Int) {
             tags { name rank }
             description(asHtml: false)
             siteUrl
+            externalLinks { site url type }
 studios { nodes { name } }
             nextAiringEpisode { episode airingAt }
             synonyms
@@ -81,6 +82,7 @@ query ($search: String, $genres: [String], $page: Int, $perPage: Int) {
             tags { name rank }
             description(asHtml: false)
             siteUrl
+            externalLinks { site url type }
             synonyms
             title { romaji english native }
         }
@@ -161,6 +163,24 @@ class AniListClient:
         return zhconv.convert(best, "zh-hant")
 
     @staticmethod
+    def _pick_youtube(external_links: list) -> list[dict]:
+        """Keep YouTube external links (channel/playlist URLs), deduplicated."""
+        out: list[dict] = []
+        seen: set[str] = set()
+        for ln in external_links or []:
+            if not isinstance(ln, dict):
+                continue
+            url = (ln.get("url") or "").strip()
+            if not url or url in seen:
+                continue
+            site = (ln.get("site") or "").lower()
+            url_l = url.lower()
+            if "youtube" in site or "youtu.be" in url_l or "youtube.com" in url_l:
+                seen.add(url)
+                out.append({"url": url, "type": ln.get("type")})
+        return out
+
+    @staticmethod
     def _normalize_media(m: dict) -> dict:
         """Flatten the AniList media object into a simple dict for storage."""
         title = m.get("title") or {}
@@ -196,6 +216,7 @@ class AniListClient:
             "tags": tags,
             "synopsis": m.get("description"),
             "site_url": m.get("siteUrl"),
+            "youtube": AniListClient._pick_youtube(m.get("externalLinks") or []),
             "studios": studios,
             "next_episode_number": (
                 (m.get("nextAiringEpisode") or {}).get("episode")
